@@ -3,8 +3,6 @@ import os
 import boto3
 import json
 import time
-import re
-import requests
 from botocore.exceptions import ClientError
 import logging
 from typing import Dict, List
@@ -12,9 +10,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from sec_api import QueryApi, RenderApi
 from ragas.dataset_schema import (
-    SingleTurnSample,
     MultiTurnSample,
-    EvaluationDataset
+    SingleTurnSample
 )
 
 from ragas import evaluate
@@ -713,38 +710,34 @@ def fetch_traces(langfuse=None, batch_size=10, lookback_hours=24,  tags=None,):
 
 def process_traces(langfuse, traces):
     """Process traces into samples for RAGAS evaluation"""
-    single_turn_samples = []
     multi_turn_samples = []
     trace_sample_mapping = []
+    test_cases = load_test_cases()
     
     for trace in traces:
-        # Extract components
-        components = extract_span_components(langfuse,trace)
+        components = extract_span_components(langfuse, trace)
         
-        # Add tool usage information to the trace for evaluation
-        tool_info = ""
-        if components["tool_usages"]:
-            tool_info = "Tools used: " + ", ".join([t["name"] for t in components["tool_usages"] if "name" in t])
-            
-        # Convert to RAGAS samples
         if components["user_inputs"]:
+            print(f"User inputs: {components['user_inputs']}")
+            print(f"Agent responses: {components['agent_responses']}")
+
+            # Get the first user input for matching
+            first_user_input = components["user_inputs"][0] if components["user_inputs"] else ""
+            
             messages = []
             for i in range(max(len(components["user_inputs"]), len(components["agent_responses"]))):
                 if i < len(components["user_inputs"]):
                     messages.append({"role": "user", "content": components["user_inputs"][i]})
                 if i < len(components["agent_responses"]):
-                    messages.append({
-                        "role": "assistant", 
-                        "content": components["agent_responses"][i] + "\n\n" + tool_info
-                    })
+                    messages.append({"role": "assistant", "content": components["agent_responses"][i]})
             
+            print("Trying to append Multi turn samples...")
+            # Match with expected answer using the first user input
+            expected_answer = match_trace_to_test_case(first_user_input, test_cases)
             multi_turn_samples.append(
                 MultiTurnSample(
                     user_input=messages,
-                    metadata={
-                        "tool_usages": components["tool_usages"],
-                        "available_tools": components["available_tools"]
-                    }
+                    reference=expected_answer 
                 )
             )
             trace_sample_mapping.append({
@@ -754,10 +747,10 @@ def process_traces(langfuse, traces):
             })
     
     return {
-        "single_turn_samples": single_turn_samples,
         "multi_turn_samples": multi_turn_samples,
         "trace_sample_mapping": trace_sample_mapping
     }
+
 
 def extract_span_components(langfuse, trace):
     """Extract user queries, agent responses, retrieved contexts 
@@ -840,3 +833,39 @@ def save_results_to_csv(rag_df=None, conv_df=None, output_dir="evaluation_result
         results["conv_file"] = conv_file
     
     return results
+
+###Run Test Cases with Rate Limiting
+def run_test_cases_sync(agent, test_cases, delay=4):
+    import time
+    results = []
+    
+    for i, test_case in enumerate(test_cases):
+        print(f"\n{'='*50}")
+        print(f"Test Case {i+1}/{len(test_cases)}: {test_case['query']}")
+        print(f"{'='*50}")
+        
+        try:
+            response = agent(test_case["query"])
+            print(f"Response: {response}")
+            results.append({"query": test_case["query"], "response": response, "expected": test_case["expected_answer"]})
+            
+            if i < len(test_cases) - 1:
+                time.sleep(delay)
+                
+        except Exception as e:
+            print(f"Error: {e}")
+            results.append({"query": test_case["query"], "error": str(e)})
+    
+    return results
+
+def load_test_cases():
+    with open("test_cases.json", "r") as f:
+        data = json.load(f)
+        return data["questions"]
+
+def match_trace_to_test_case(user_input, test_cases):
+    """Match trace user input to test case"""
+    for test_case in test_cases:
+        if test_case["query"].lower() in user_input.lower():
+            return test_case["expected_answer"]
+    return None
