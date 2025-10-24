@@ -69,8 +69,6 @@ The architecture consists of three main components:
 - Langfuse dashboard for trace visualization
 - Automated evaluation scoring and feedback loops
 
-## Usage
-
 ### Custom Evaluation
 
 Modify `test_cases.json` to add your own evaluation scenarios:

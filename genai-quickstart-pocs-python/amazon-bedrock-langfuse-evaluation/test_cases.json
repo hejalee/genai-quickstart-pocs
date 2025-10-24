@@ -2,7 +2,11 @@
   "questions": [
     {
       "query": "What was AWS's total net sales revenue for 2022 fiscal year?",
-      "expected_answer": "AWS's total net sales for the most recent fiscal year were $80,096 million."
+      "expected_answer": "AWS's total net sales for 2022 were $80,096 million."
+    },
+    {
+      "query": "What was AWS's total net sales revenue for 2023 fiscal year?",
+      "expected_answer": "AWS's total net sales for the most 2023 were $90,757 million."
     },
     {
       "query": "How much revenue did Amazon Web Services (AWS) generate in 2021 and what was its growth rate?",
@@ -11,10 +15,6 @@
     {
       "query": "What was Amazon's net income in 2021 and how did it compare to the previous year?",
       "expected_answer": "Amazon's net income increased significantly from 2020 to 2021. In 2020, Amazon reported net income of $21,331 million, while in 2021 the company achieved net income of $33,364 million. This represents an increase of approximately $12,033 million or about 56% growth year-over-year."
-    },
-    {
-      "query": "What was AWS's total net sales revenue for 2024 fiscal year?",
-      "expected_answer": "Amazon's total net sales for the most recent fiscal year were $107,556 million."
     },
     {
       "query": "How much did Amazon spend on capital expenditures from 2020-2022 and what were the primary areas of investment?",
